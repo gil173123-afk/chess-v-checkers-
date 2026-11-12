@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess vs. Checkers</title>
+<style>
+:root{--dark:#8d5734;--light:#ffd5a8;--sqdark:#df8d50;--ink:#35261e;--cream:#fff8ef;--accent:#f6bd62}
+*{box-sizing:border-box}html{touch-action:manipulation}body{margin:0;min-height:100vh;color:var(--ink);background:radial-gradient(ellipse at top,#fff7eb,#ead6c2 72%);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;justify-content:center;padding:24px 14px}
+.app{width:min(1120px,100%)}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}h1{margin:3px 0 0;font-size:clamp(1.7rem,4vw,2.5rem)}.eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#a16a43}.tag,.card{background:#fffaf4dc;border:1px solid #ead5c0;border-radius:15px;padding:15px}.tag{border-radius:99px;font-size:.82rem}.layout{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:22px;align-items:start}.board-wrap{background:var(--dark);padding:clamp(18px,4vw,40px);border-radius:10px;box-shadow:0 18px 40px #5c371b24}.coords{display:flex;justify-content:space-around;color:#fff3e5;font-size:.85rem;font-weight:650;padding:7px 0}.board-shell{position:relative}.ranks{position:absolute;left:-17px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-around;color:#fff3e5;font-size:.8rem}.board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));width:100%;aspect-ratio:1;border:1px solid #754326;overflow:hidden}.square{position:relative;display:flex;align-items:center;justify-content:center;border:0;margin:0;padding:0;min-width:0;min-height:0;cursor:pointer;touch-action:manipulation}.light{background:var(--light)}.dark{background:var(--sqdark)}.square.selected{box-shadow:inset 0 0 0 5px #f6bd62}.square.legal:after{content:"";position:absolute;width:22%;height:22%;border-radius:50%;background:#49322275}.square.capture:after{width:80%;height:80%;background:transparent;border:5px solid #49322275}.piece{position:relative;z-index:1;pointer-events:none;line-height:1;font-size:clamp(1.45rem,5.4vw,4.2rem);font-family:"DejaVu Sans","Segoe UI Symbol",serif;filter:drop-shadow(0 2px 0 #0002)}.whitepiece{color:#fffdf7;-webkit-text-stroke:1px #43352d;text-shadow:0 1px #43352d}.checker{width:76%;height:76%;border-radius:50%;background:radial-gradient(circle at 34% 28%,#68605a,#191512 65%,#080706);border:3px solid #e7d7c5;box-shadow:inset 0 2px 4px #ffffff55,0 3px 3px #0005;display:grid;place-items:center;color:#ffd36b;font-size:clamp(1.1rem,4vw,2.7rem);font-weight:900}.checker.king{border-color:#f4c65e}.panel{display:flex;flex-direction:column;gap:13px}.card h2{font-size:1rem;margin:0 0 10px}.turn{display:flex;align-items:center;gap:10px;font-weight:750;font-size:1.05rem}.turn-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#f0dfcc;font-size:1.35rem}.status{color:#866d5a;font-size:.88rem;margin:8px 0 0 48px;min-height:2.4em}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}button.action{border:1px solid #dec1a6;border-radius:10px;padding:11px 9px;background:#fff8ef;color:#503725;cursor:pointer;font-weight:700}button.primary{background:#80502f!important;color:white!important;border-color:#80502f!important}.move-list{min-height:80px;max-height:210px;overflow:auto;font-size:.88rem}.move-row{padding:6px 4px;border-bottom:1px solid #f0e2d4}.hint{color:#876d58;font-size:.84rem;line-height:1.5;margin:0}.footer{text-align:center;color:#9a806b;font-size:.78rem;padding:15px 0 0}
+@media(max-width:780px){.layout{grid-template-columns:1fr}.panel{display:grid;grid-template-columns:1fr 1fr}.moves-card{grid-column:1/-1}.move-list{max-height:140px}}
+@media(max-width:460px){body{padding:14px 8px}.tag{display:none}.board-wrap{padding:20px 24px}.panel{display:flex}.piece{font-size:clamp(1.2rem,8vw,2.4rem)}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><div class="eyebrow">A mixed strategy game</div><h1>Chess vs. Checkers</h1></div><div class="tag">♟ Chess against ● Checkers</div></header>
+<main class="layout">
+<section><div class="board-wrap">
+<div class="coords" id="filesTop"></div><div class="board-shell"><div class="ranks" id="ranks"></div><div class="board" id="board" role="grid" aria-label="Chess and checkers board"></div></div><div class="coords" id="filesBottom"></div>
+</div><div class="footer">Choose a piece, then choose a highlighted destination.</div></section>
+<aside class="panel">
+<section class="card"><h2>Game status</h2><div class="turn"><div class="turn-icon" id="turnIcon">♙</div><span id="turnText">White chess to move</span></div><p class="status" id="statusText">White plays chess. Black plays checkers.</p></section>
+<section class="card"><h2>Game controls</h2><div class="actions"><button class="action primary" id="newGame">↻ New game</button><button class="action" id="flip">⇅ Flip board</button><button class="action" id="undo">↶ Undo move</button><button class="action" id="hintBtn">✦ Show hints</button></div></section>
+<section class="card moves-card"><h2>Move history</h2><div class="move-list" id="moveList"><p class="hint">Moves appear here.</p></div></section>
+<section class="card"><h2>How to play</h2><p class="hint"><b>White:</b> plays normal chess with the 16 white chess pieces.<br><b>Black:</b> plays 12 checkers. Checkers move diagonally forward on dark squares; jumps capture white pieces. Captures are mandatory, and multiple jumps must be completed. A checker reaching the far row becomes a king and can move both directions.</p></section>
+</aside></main></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id), files="abcdefgh";
+let game, selected=null, moves=[], flipped=false, hints=false, history=[], blackKings=new Set(), chainSquare=null, gameOver=false, turnCount=1;
+const startFen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const symbols={wk:"♔",wq:"♕",wr:"♖",wb:"♗",wn:"♘",wp:"♙",bk:"",bq:"",br:"",bb:"",bn:"",bp:""};
+function coord(s){return {r:8-Number(s[1]),c:files.indexOf(s[0])}}
+function name(r,c){return files[c]+(8-r)}
+function isDark(r,c){return (r+c)%2===1}
+function boardMap(){let a=Array.from({length:8},()=>Array(8).fill(null));game.board().forEach((row,r)=>row.forEach((p,c)=>{if(p && !(r===0&&c===0&&p.color==="b"&&p.type==="k"))a[r][c]={color:p.color,type:p.type}}));return a}
+function checkerMoves(sq,board=boardMap(),kings=blackKings){
+ const {r,c}=coord(sq), piece=board[r][c];if(!piece||piece.color!=="b")return [];
+ const king=kings.has(sq), dirs=king?[-1,1]:[1], captures=[],steps=[];
+ for(const dr of dirs)for(const dc of [-1,1]){
+  let r1=r+dr,c1=c+dc,r2=r+2*dr,c2=c+2*dc;
+  if(r1<0||r1>7||c1<0||c1>7)continue;
+  if(board[r1][c1]&&board[r1][c1].color==="w"&&r2>=0&&r2<8&&c2>=0&&c2<8&&!board[r2][c2])captures.push({from:sq,to:name(r2,c2),over:name(r1,c1),capture:true});
+  else if(!board[r1][c1])steps.push({from:sq,to:name(r1,c1),capture:false});
+ }
+ return captures.length?captures:steps;
+}
+function allBlackMoves(board=boardMap(),kings=blackKings){
+ let all=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++){let p=board[r][c];if(p&&p.color==="b")all.push(...checkerMoves(name(r,c),board,kings))}
+ return all;
+}
+function whiteMoves(){return game.moves({verbose:true})}
+function save(){history.push({fen:game.fen(),kings:[...blackKings],chainSquare,gameOver,turnCount});}
+function restore(){if(history.length<2)return;history.pop();let s=history[history.length-1];game=new Chess(s.fen);blackKings=new Set(s.kings);chainSquare=s.chainSquare;gameOver=s.gameOver;turnCount=s.turnCount;selected=null;moves=[];render()}
+function reset(){game=new Chess(startFen);blackKings=new Set();chainSquare=null;gameOver=false;turnCount=1;history=[];
+ // Clear the original black chess army, then place 12 checkers on the dark squares
+ // of the top three ranks, matching the supplied reference image.
+ const b=Array.from({length:8},()=>Array(8).fill(null));
+ const original=game.board();
+ for(let r=6;r<8;r++)for(let c=0;c<8;c++){const p=original[r][c];if(p)b[r][c]={color:"w",type:p.type};}
+ for(let r=0;r<3;r++)for(let c=0;c<8;c++)if(isDark(r,c))b[r][c]={color:"b",type:"p"};
+ let fenRows=[];for(let r=0;r<8;r++){let row="",empty=0;for(let c=0;c<8;c++){let p=b[r][c];if(p){if(empty){row+=empty;empty=0}row+=p.color==="w"?p.type.toUpperCase():"p"}else empty++}if(empty)row+=empty;fenRows.push(row)}
+ // Keep an off-board-to-the-game hidden king for chess.js validation.
+ fenRows[0]="k"+fenRows[0].slice(1);
+ game.load(fenRows.join("/")+" w KQ - 0 1");save();selected=null;moves=[];render()}
+function setFenAfterBlack(board,rights,full){let rows=[];for(let r=0;r<8;r++){let row="",e=0;for(let c=0;c<8;c++){let p=board[r][c];if(!p)e++;else{if(e){row+=e;e=0}row+=p.color==="w"?p.type.toUpperCase():"p"}}if(e)row+=e;rows.push(row)}
+ // chess.js requires a black king in its internal position. Keep the hidden
+ // placeholder on a8 when rebuilding the board after a checker move.
+ rows[0]="k"+rows[0].slice(1);
+ const fen=rows.join("/")+" w "+rights+" - 0 "+full;game.load(fen)}
+function render(){
+ const orderR=flipped?[0,1,2,3,4,5,6,7]:[7,6,5,4,3,2,1,0],orderC=flipped?[7,6,5,4,3,2,1,0]:[0,1,2,3,4,5,6,7];
+ $("filesTop").innerHTML=orderC.map(c=>`<span>${files[c]}</span>`).join("");$("filesBottom").innerHTML=orderC.map(c=>`<span>${files[c]}</span>`).join("");$("ranks").innerHTML=orderR.map(r=>`<span>${8-r}</span>`).join("");
+ const b=boardMap();$("board").innerHTML="";
+ orderR.forEach((r,ri)=>orderC.forEach((c,ci)=>{
+  const sq=name(r,c),p=b[r][c],el=document.createElement("button");el.className="square "+(isDark(r,c)?"dark":"light");if(selected===sq)el.classList.add("selected");
+  const target=moves.find(m=>m.to===sq);if(target){el.classList.add("legal");if(target.capture||target.flags?.includes("c"))el.classList.add("capture")}
+  if(p){let span=document.createElement("span");if(p.color==="b"){span.className="checker"+(blackKings.has(sq)?" king":"");span.textContent=blackKings.has(sq)?"♛":""}else{span.className="piece whitepiece";span.textContent=symbols["w"+p.type]}el.appendChild(span)}
+  if(hints&&p&&((game.turn()==="w"&&p.color==="w")||(game.turn()==="b"&&p.color==="b"))){el.style.outline="2px solid #80502f";el.style.outlineOffset="-3px"}
+  el.setAttribute("aria-label",sq+(p?(p.color==="w"?" white chess ":" black checker ")+(p.type==="p"?"pawn":p.type):""));el.addEventListener("click",()=>click(sq));$("board").appendChild(el)
+ }));
+ updateStatus();renderHistory()
+}
+function click(sq){
+ if(gameOver)return;const b=boardMap(),p=b[coord(sq).r][coord(sq).c],turn=game.turn();
+ if(selected&&moves.some(m=>m.to===sq)){if(turn==="w")playWhite(sq);else playBlack(sq);return}
+ if(turn==="w"&&p&&p.color==="w"){selected=sq;moves=whiteMoves().filter(m=>m.from===sq);render();return}
+ if(turn==="b"&&p&&p.color==="b"&&(!chainSquare||chainSquare===sq)){selected=sq;moves=checkerMoves(sq);if(!moves.length){$("statusText").textContent="That checker has no legal move."}render();return}
+ selected=null;moves=[];render()
+}
+function playWhite(to){
+ const move=game.move({from:selected,to,promotion:"q"});if(!move)return;
+ if(move.captured){let cap=to;if(move.flags.includes("e"))cap=to[0]+(Number(to[1])+(move.color==="w"?-1:1));blackKings.delete(cap)}
+ selected=null;moves=[];chainSquare=null;save();checkWin();render()
+}
+function playBlack(to){
+ const choice=moves.find(m=>m.to===to);if(!choice)return;let b=boardMap(),from=coord(choice.from),dest=coord(choice.to);
+ const rights=game.fen().split(" ")[2],full=Number(game.fen().split(" ")[5])+(turnCount%2===0?1:0);
+ const movingKing=blackKings.has(choice.from);
+ b[dest.r][dest.c]=b[from.r][from.c];b[from.r][from.c]=null;blackKings.delete(choice.from);
+ if(choice.capture){const over=coord(choice.over);b[over.r][over.c]=null;blackKings.delete(choice.over)}
+ const crowned=dest.r===7&&!movingKing;
+ if(dest.r===7||movingKing)blackKings.add(choice.to);
+ setFenAfterBlack(b,rights,full);
+ selected=null;moves=[];turnCount++;
+ // Reaching the king row crowns the checker and ends its turn.
+ if(choice.capture&&!crowned){const more=checkerMoves(choice.to,boardMap());if(more.some(m=>m.capture)){chainSquare=choice.to;selected=choice.to;moves=more;save();render();$("statusText").textContent="Continue the multiple jump with the same checker.";return}}
+ chainSquare=null;save();checkWin();render()
+}
+function checkWin(){
+ const b=boardMap(),white=b.flat().filter(p=>p&&p.color==="w"),black=b.flat().filter(p=>p&&p.color==="b");
+ if(!white.length||!white.some(p=>p.type==="k")){gameOver=true;$("statusText").textContent="Checkers win! The white king has been captured.";return}
+ if(!black.length){gameOver=true;$("statusText").textContent="White wins! All checkers have been captured.";return}
+ if(game.turn()==="w"&&!whiteMoves().length){gameOver=true;$("statusText").textContent="Checkers win! White has no legal chess moves.";return}
+ if(game.turn()==="b"&&!allBlackMoves().length){gameOver=true;$("statusText").textContent="White wins! Black has no legal checker moves.";return}
+}
+function updateStatus(){let t=game.turn();$("turnText").textContent=gameOver?"Game over":t==="w"?"White chess to move":"Black checkers to move";$("turnIcon").textContent=t==="w"?"♙":"●";if(!gameOver){let b=boardMap();$("statusText").textContent=t==="w"?"Move any white chess piece using normal chess rules.":"Move a black checker diagonally. "+(allBlackMoves().some(m=>m.capture)?"A jump is available and must be taken.":"")}}
+function renderHistory(){$("moveList").innerHTML=history.length<=1?'<p class="hint">Moves appear here.</p>':history.slice(1).map((s,i)=>`<div class="move-row">${i+1}. ${i%2===0?"White chess":"Black checkers"} move</div>`).join("")}
+$("newGame").onclick=reset;$("flip").onclick=()=>{flipped=!flipped;render()};$("undo").onclick=restore;$("hintBtn").onclick=()=>{hints=!hints;$("hintBtn").textContent=hints?"✦ Hide hints":"✦ Show hints";render()};
+if(typeof Chess==="undefined"){$("statusText").textContent="Could not load the chess rules library. Connect to the internet and refresh."}else reset();
+})();
+</script>
+</body></html>
