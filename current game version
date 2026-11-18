@@ -58,17 +58,24 @@ function isDark(r,c){return (r+c)%2===1}
 function boardMap(){let a=Array.from({length:8},()=>Array(8).fill(null));game.board().forEach((row,r)=>row.forEach((p,c)=>{if(p && !(r===0&&c===0&&p.color==="b"&&p.type==="k"))a[r][c]={color:p.color,type:p.type}}));return a}
 function checkerMoves(sq,board=boardMap(),kings=blackKings,edges=edgePieces){
  const {r,c}=checkerCoord(sq),piece=checkerPieceAt(sq,board,edges);if(!piece||piece.color!=="b")return [];
- const king=kings.has(sq),dirs=king?[-1,1]:[1],captures=[],steps=[];
- for(const dr of dirs)for(const dc of [-1,1]){
+ const king=kings.has(sq),stepDirs=king?[-1,1]:[1],captures=[],steps=[];
+ // A checker may capture in either diagonal direction. This is important for
+ // chained jumps: the second capture may require reversing direction.
+ for(const dr of [-1,1])for(const dc of [-1,1]){
   const r1=r+dr,c1=c+dc,r2=r+2*dr,c2=c+2*dc;
-  if(r1<0||r1>9||c1<0||c1>9)continue;
+  if(r1<0||r1>9||c1<0||c1>9||r2<0||r2>9||c2<0||c2>9)continue;
   const over=checkerName(r1,c1),overPiece=checkerPieceAt(over,board,edges);
-  if(overPiece&&overPiece.color==="w"&&r2>=0&&r2<=9&&c2>=0&&c2<=9){
+  if(overPiece&&overPiece.color==="w"){
    const to=checkerName(r2,c2);
    if(!checkerPieceAt(to,board,edges))captures.push({from:sq,to,over,capture:true});
-  }else if(!overPiece&&insideBoard(r1,c1)){
-   steps.push({from:sq,to:over,capture:false});
   }
+ }
+ // Ordinary non-king moves still travel forward only.
+ for(const dr of stepDirs)for(const dc of [-1,1]){
+  const r1=r+dr,c1=c+dc;
+  if(r1<0||r1>9||c1<0||c1>9)continue;
+  const to=checkerName(r1,c1);
+  if(!checkerPieceAt(to,board,edges)&&insideBoard(r1,c1))steps.push({from:sq,to,capture:false});
  }
  return captures.length?captures:steps;
 }
@@ -94,11 +101,11 @@ function reset(){game=new Chess(startFen);blackKings=new Set();edgePieces={};cha
  // Keep an off-board-to-the-game hidden king for chess.js validation.
  fenRows[0]="k"+fenRows[0].slice(1);
  game.load(fenRows.join("/")+" w KQ - 0 1");save();selected=null;moves=[];render()}
-function setFenAfterBlack(board,rights,full){let rows=[];for(let r=0;r<8;r++){let row="",e=0;for(let c=0;c<8;c++){let p=board[r][c];if(!p)e++;else{if(e){row+=e;e=0}row+=p.color==="w"?p.type.toUpperCase():"p"}}if(e)row+=e;rows.push(row)}
+function setFenAfterBlack(board,rights,full,nextTurn="w"){let rows=[];for(let r=0;r<8;r++){let row="",e=0;for(let c=0;c<8;c++){let p=board[r][c];if(!p)e++;else{if(e){row+=e;e=0}row+=p.color==="w"?p.type.toUpperCase():"p"}}if(e)row+=e;rows.push(row)}
  // chess.js requires a black king in its internal position. Keep the hidden
  // placeholder on a8 when rebuilding the board after a checker move.
  rows[0]="k"+rows[0].slice(1);
- const fen=rows.join("/")+" w "+rights+" - 0 "+full;game.load(fen)}
+ const fen=rows.join("/")+" "+nextTurn+" "+rights+" - 0 "+full;game.load(fen)}
 function render(){
  const orderR=flipped?[9,8,7,6,5,4,3,2,1,0]:[0,1,2,3,4,5,6,7,8,9];
  const orderC=flipped?[9,8,7,6,5,4,3,2,1,0]:[0,1,2,3,4,5,6,7,8,9];
@@ -140,10 +147,19 @@ function playBlack(to){
  if(choice.capture){putCheckerPiece(choice.over,null,b,edges);blackKings.delete(choice.over)}
  const dest=checkerCoord(choice.to),crowned=dest.r>=8&&!movingKing;
  if(dest.r>=8||movingKing)blackKings.add(choice.to);
- edgePieces=edges;setFenAfterBlack(b,rights,full);
+ edgePieces=edges;setFenAfterBlack(b,rights,full,"w");
  selected=null;moves=[];turnCount++;
- // A checker reaching the far edge is crowned and its turn ends.
- if(choice.capture&&!crowned){const more=checkerMoves(choice.to,boardMap());if(more.some(m=>m.capture)){chainSquare=choice.to;selected=choice.to;moves=more;save();render();$("statusText").textContent="Continue the multiple jump with the same checker.";return}}
+ // Check for another jump before handing the turn to White. If one exists,
+ // keep chess.js on Black's turn so the UI cannot switch players mid-chain.
+ if(choice.capture&&!crowned){
+  const more=checkerMoves(choice.to,boardMap(),blackKings,edgePieces).filter(m=>m.capture);
+  if(more.length){
+   setFenAfterBlack(b,rights,full,"b");
+   chainSquare=choice.to;selected=choice.to;moves=more;save();render();
+   $("statusText").textContent="Continue the multiple jump with the same checker.";
+   return;
+  }
+ }
  chainSquare=null;save();checkWin();render()
 }
 function checkWin(){
